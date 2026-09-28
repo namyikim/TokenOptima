@@ -62,6 +62,25 @@ class SessionReport:
     task_count: int = 0
     notes: List[str] = field(default_factory=list)
 
+    @property
+    def total_tokens(self) -> int:
+        return sum(self.totals.values())
+
+    @property
+    def avoidable_tokens(self) -> float:
+        """줄일 수 있었던 토큰(상한).
+
+        작업마다 새 대화였다면 덜 읽었을 입력·캐시 읽기 + 자리를 비워 다시 쓴 캐시. 새 대화에서 파일을 다시 읽는
+        비용은 빼지 않았으므로 실제 절감은 이보다 작다.
+        """
+        reread = (self.totals["input"] + self.totals["cache_read"]) * self.per_task_saving
+        return reread + sum(b.rewritten_tokens for b in self.idle_breaks)
+
+    @property
+    def avoidable_cost(self) -> float:
+        reread = relative_cost(self.totals["input"], self.totals["cache_read"], 0, 0) * self.per_task_saving
+        return reread + sum(relative_cost(0, 0, b.rewritten_tokens, 0) for b in self.idle_breaks)
+
 
 def _segments(session: Session, starts: List[int]) -> List[List[Call]]:
     bounds = starts + [10 ** 12]

@@ -51,6 +51,7 @@ class Session:
     path: Path
     project: str
     session_id: str
+    cwd: str = ""          # 대화를 연 작업 폴더(보고서의 대화 이름)
     calls: List[Call] = field(default_factory=list)
     prompts: List[Prompt] = field(default_factory=list)
     tool_results: List[ToolResult] = field(default_factory=list)
@@ -103,6 +104,8 @@ def load_session(path: Path) -> Session:
             except json.JSONDecodeError:
                 continue
             message = record.get("message") or {}
+            if not session.cwd and record.get("cwd"):
+                session.cwd = record["cwd"]
             if record.get("type") == "assistant" and message.get("usage"):
                 usage = message["usage"]
                 key = message.get("id") or f"line-{order}"

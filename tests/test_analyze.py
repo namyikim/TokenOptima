@@ -10,7 +10,8 @@ sys.path.insert(0, str(ROOT))
 
 from tokenoptima.analyze import analyse, findings, per_task_context  # noqa: E402
 from tokenoptima.loader import load_session  # noqa: E402
-from tokenoptima.report import render  # noqa: E402
+from tokenoptima.cli import main  # noqa: E402
+from tokenoptima.report import SECTIONS, render  # noqa: E402
 
 
 def _ts(minute):
@@ -128,7 +129,50 @@ class AnalyseTests(unittest.TestCase):
         hidden = render([self.report], redact=True)
         self.assertIn("관리자 페이지에 새 화면", plain)
         self.assertNotIn("관리자 페이지에 새 화면", hidden)
-        self.assertNotIn('"네"', hidden)
+        self.assertNotIn("| 네 |", hidden)
+        self.assertNotIn("cat big_file.js", hidden)
+
+
+
+def short_session():
+    """새 대화에서 한 가지 일만 하고 끝낸 사람 — 낭비 패턴이 거의 없다."""
+    b = Builder()
+    b.prompt("README 오타 하나만 고쳐 주세요 부탁드립니다 감사합니다", 0)
+    b.call(50_000, 1, write=50_000)
+    b.call(51_000, 2)
+    return b
+
+
+class FormatTests(unittest.TestCase):
+    """누구를 분석하든 같은 형식: 같은 절이 같은 순서로 나온다."""
+
+    def sections_of(self, text):
+        return [line for line in text.splitlines() if line.startswith("## ")]
+
+    def test_same_sections_for_heavy_and_light_users(self):
+        with tempfile.TemporaryDirectory() as d:
+            heavy = render([analyse(load_session(long_session().write(Path(d) / "a")))], name="가명A")
+            light = render([analyse(load_session(short_session().write(Path(d) / "b")))], name="가명B")
+        for text in (heavy, light):
+            self.assertEqual(self.sections_of(text), list(SECTIONS))
+        self.assertTrue(heavy.startswith("# 토큰 사용 분석 보고서 — 가명A"))
+        self.assertIn("| **줄일 수 있었던 양 (최대)** |", light)
+        self.assertNotIn("내 기록", heavy)
+
+    def test_team_command_writes_one_redacted_report_per_person(self):
+        with tempfile.TemporaryDirectory() as d:
+            team = Path(d) / "team"
+            long_session().write(team / "person1")                 # <사람>/<프로젝트>/<세션>.jsonl
+            short_session().write(team / "person2" / "projects")    # <사람>/projects/<프로젝트>/<세션>.jsonl
+            (team / "empty").mkdir(parents=True)
+            out = Path(d) / "out"
+            self.assertEqual(main(["analyze-team", str(team), "--out-dir", str(out)]), 0)
+            reports = sorted(p.name for p in out.iterdir())
+            self.assertEqual(reports, ["person1.md", "person2.md"])
+            text = (out / "person1.md").read_text(encoding="utf-8")
+        self.assertEqual(self.sections_of(text), list(SECTIONS))
+        self.assertIn("— person1", text)
+        self.assertNotIn("관리자 페이지에 새 화면", text, "팀 보고서는 기본으로 프롬프트 글을 가린다")
 
 
 if __name__ == "__main__":

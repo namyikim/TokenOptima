@@ -22,12 +22,26 @@ AI 코딩 도구(Claude Code 등)와 나눈 대화 기록에서 **토큰이 어�
 Python 3.9 이상, 외부 패키지 없음.
 
 ```bash
-python3 -m tokenoptima analyze              # ~/.claude/projects/*/*.jsonl 전체
-python3 -m tokenoptima analyze --redact     # 보고서에 프롬프트 글을 넣지 않음
-python3 -m tokenoptima analyze a.jsonl --out reports/a.md
+python3 -m tokenoptima analyze                               # 내 기록(~/.claude/projects) 전체
+python3 -m tokenoptima analyze --redact                      # 프롬프트 글·경로를 가린 판(공유용)
+python3 -m tokenoptima analyze --root <폴더> --name 가명A      # 다른 사람이 보내 준 projects 폴더
+python3 -m tokenoptima analyze-team <팀 폴더>                 # 사람마다 보고서 한 편씩
 ```
 
-보고서는 기본으로 `reports/report.md`에 생깁니다. **`reports/`와 `*.jsonl`은 `.gitignore`로 막혀 있어 저장소에 올라가지 않습니다.**
+`analyze-team`의 팀 폴더는 사람마다 하위 폴더 하나입니다(`<사람>/<프로젝트>/<세션>.jsonl` 또는 `<사람>/projects/...`).
+폴더 이름이 보고서 제목이 되므로 **가명 폴더**를 권합니다. 팀 보고서는 기본으로 프롬프트 글을 가립니다.
+
+보고서는 `reports/`에 생기고, **`reports/`와 `*.jsonl`은 `.gitignore`로 막혀 있어 저장소에 올라가지 않습니다.**
+
+## 보고서 형식
+
+누구를 분석하든 같은 순서로 나옵니다(테스트가 고정).
+
+1. **한눈에 보기** — 총 토큰, 줄일 수 있었던 양(최대), 꼭 필요했던 양
+2. **대화별** — 대화마다 사용 토큰과 줄일 수 있었던 비율
+3. **무엇이 문제이고 어떻게 고치나** — 영향이 큰 순서로 문제·기록·고치는 법
+4. **잘하고 있는 것**
+5. **대화별 세부**
 
 ## 비용은 상대값입니다
 
