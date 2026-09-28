@@ -1,0 +1,17 @@
+[project]
+name = "tokenoptima"
+version = "0.1.0"
+description = "AI 대화 기록에서 토큰 낭비 패턴을 찾고 줄이는 방법을 제안한다"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+tokenoptima = "tokenoptima.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["tokenoptima"]
