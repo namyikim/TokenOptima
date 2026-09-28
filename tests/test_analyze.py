@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT))
 from tokenoptima.analyze import analyse, findings, per_task_context  # noqa: E402
 from tokenoptima.loader import load_session  # noqa: E402
 from tokenoptima.cli import main  # noqa: E402
-from tokenoptima.report import SECTIONS, render  # noqa: E402
+from tokenoptima.report import SECTIONS, render, score  # noqa: E402
 
 
 def _ts(minute):
@@ -158,6 +158,17 @@ class FormatTests(unittest.TestCase):
         self.assertTrue(heavy.startswith("# 토큰 사용 분석 보고서 — 가명A"))
         self.assertIn("| **줄일 수 있었던 양 (최대)** |", light)
         self.assertNotIn("내 기록", heavy)
+
+    def test_score_ends_the_report_and_rewards_short_sessions(self):
+        with tempfile.TemporaryDirectory() as d:
+            heavy = [analyse(load_session(long_session().write(Path(d) / "a")))]
+            light = [analyse(load_session(short_session().write(Path(d) / "b")))]
+        self.assertLess(score(heavy), score(light))
+        for reports in (heavy, light):
+            self.assertTrue(0 <= score(reports) <= 100)
+            text = render(reports)
+            self.assertIn(f"### 효율 점수: **{score(reports)}점 / 100**", text)
+            self.assertEqual(self.sections_of(text)[-1], "## 6. 최종 평가")
 
     def test_team_command_writes_one_redacted_report_per_person(self):
         with tempfile.TemporaryDirectory() as d:

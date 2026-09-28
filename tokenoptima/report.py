@@ -1,7 +1,7 @@
 """분석 결과를 마크다운 보고서로 쓴다.
 
 구성: ① 한눈에 보기(총 토큰 중 줄일 수 있었던 비율) → ② 대화별 → ③ 무엇이 문제이고 어떻게 고치나
-→ ④ 잘하고 있는 것 → ⑤ 대화별 세부. 먼저 결론(몇 %를 줄일 수 있나)을 보이고, 그 아래에 이유와 방법을 둔다.
+→ ④ 잘하고 있는 것 → ⑤ 대화별 세부 → ⑥ 최종 평가(효율 점수). 먼저 결론(몇 %를 줄일 수 있나)을 보이고, 그 아래에 이유와 방법을 둔다.
 
 보고서에는 프롬프트 앞부분·파일 경로가 들어갈 수 있다. --redact 면 프롬프트 글, 폴더 이름, 명령·경로를 모두 뺀다.
 기본 출력 위치 reports/ 는 .gitignore 로 막혀 있다.
@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import List
 
 from .analyze import SessionReport, findings
+from .pricing import relative_cost
 
 
 def _clip(text: str, n: int) -> str:
@@ -162,9 +163,45 @@ def _details(reports: List[SessionReport], redact: bool) -> List[str]:
     return lines
 
 
+# 효율 점수의 등급 경계(이상). docs/metrics.md 와 맞춘다.
+GRADES = ((90, "A", "효율적으로 쓰고 있다"), (75, "B", "대체로 좋다. 3절의 첫 항목만 고쳐도 오른다"),
+          (60, "C", "고칠 여지가 크다. 3절을 차례로 적용해 본다"), (0, "D", "같은 일을 훨씬 싸게 할 수 있다. 3절의 첫 항목부터"))
+
+
+def score(reports: List[SessionReport]) -> int:
+    """효율 점수(0~100) = 100 × (1 − 비용 기준 줄일 수 있었던 비율). 쓴 양이 아니라 쓰는 방식을 본다."""
+    cost = sum(r.cost for r in reports)
+    if not cost:
+        return 100
+    avoid = sum(r.avoidable_cost for r in reports)
+    return max(0, min(100, round(100 * (1 - avoid / cost))))
+
+
+def _verdict(reports: List[SessionReport]) -> List[str]:
+    cost = sum(r.cost for r in reports) or 1
+    reread = sum(r.avoidable_cost - sum(relative_cost(0, 0, b.rewritten_tokens, 0) for b in r.idle_breaks)
+                 for r in reports)
+    idle = sum(relative_cost(0, 0, b.rewritten_tokens, 0) for r in reports for b in r.idle_breaks)
+    value = score(reports)
+    grade, comment = next((g, c) for bound, g, c in GRADES if value >= bound)
+    return [
+        "## 6. 최종 평가", "",
+        f"### 효율 점수: **{value}점 / 100** (등급 {grade})", "",
+        f"{comment}.", "",
+        "| 항목 | 점수 |", "|---|---:|",
+        "| 기본 | 100 |",
+        f"| − 한 대화에 여러 작업을 이어감 | −{100 * reread / cost:.0f} |",
+        f"| − 오래 쉬었다가 돌아와 캐시를 다시 씀 | −{100 * idle / cost:.0f} |",
+        f"| **효율 점수** | **{value}** |", "",
+        "- 점수 = 100 × (1 − 비용 기준 줄일 수 있었던 비율). 등급: A 90 이상 · B 75 이상 · C 60 이상 · D 그 아래. 반올림 때문에 항목 합이 1점 다를 수 있다.",
+        "- **토큰을 많이 쓴 양은 점수에 들어가지 않는다.** 같은 일을 얼마나 싸게 했는가(쓰는 방식)만 본다.",
+        "- 줄일 수 있었던 양이 상한이므로 이 점수는 **보수적(낮게 나오는 쪽)** 이다. 사람끼리 줄 세우는 데 쓰지 않는다.", "",
+    ]
+
+
 # 보고서의 절 제목. 누구를 분석하든 이 순서·이름을 지킨다(tests 가 고정한다).
 SECTIONS = ("## 1. 한눈에 보기", "## 2. 대화별", "## 3. 무엇이 문제이고 어떻게 고치나",
-            "## 4. 잘하고 있는 것", "## 5. 대화별 세부")
+            "## 4. 잘하고 있는 것", "## 5. 대화별 세부", "## 6. 최종 평가")
 
 
 def render(reports: List[SessionReport], redact: bool = False, name: str = "") -> str:
@@ -178,4 +215,5 @@ def render(reports: List[SessionReport], redact: bool = False, name: str = "") -
     lines += ["토큰 수는 AI가 실제로 읽고 쓴 양이다. 비용 비율은 달러가 아니라 상대값"
               "(입력 1 · 캐시 읽기 0.1 · 캐시 쓰기 1.25 · 출력 5)으로 계산했다. 계산 방법은 `docs/metrics.md`.", ""]
     lines += _summary(reports) + _per_session(reports, redact) + _problems(reports) + _good(reports) + _details(reports, redact)
+    lines += _verdict(reports)
     return "\n".join(lines) + "\n"
