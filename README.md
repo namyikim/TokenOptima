@@ -19,14 +19,51 @@ AI 코딩 도구(Claude Code 등)와 나눈 대화 기록에서 **토큰이 어�
 
 ## 실행
 
-Python 3.9 이상, 외부 패키지 없음.
+Python 3.9 이상, 외부 패키지 없음(설치할 것이 없습니다).
+
+### 처음 한 번
+
+```bash
+git clone https://github.com/namyikim/TokenOptima.git
+cd TokenOptima
+python3 --version          # 3.9 이상인지 확인
+```
+
+### 보고서 만들기와 점수 확인
+
+```bash
+python3 -m tokenoptima analyze
+```
+
+터미널에 한 줄이 나오고, 보고서는 `reports/report.md`에 저장됩니다.
+
+```text
+나: 대화 4개 · 효율 점수 38/100 → reports/report.md
+```
+
+- **효율 점수**(0~100, 등급 A~D)는 터미널 출력과 보고서 맨 아래 **6. 최종 평가**에 나옵니다.
+- 보고서는 마크다운이라 VS Code 등에서 미리보기로 열면 표가 보기 좋게 나옵니다.
+- 명령을 다시 실행하면 같은 파일을 새로 덮어씁니다. 기록이 쌓인 뒤 다시 돌려 점수 변화를 볼 수 있습니다.
+
+### 옵션
 
 ```bash
 python3 -m tokenoptima analyze                               # 내 기록(~/.claude/projects) 전체
 python3 -m tokenoptima analyze --redact                      # 프롬프트 글·경로를 가린 판(공유용)
+python3 -m tokenoptima analyze --out reports/9월.md           # 저장 위치 지정
+python3 -m tokenoptima analyze <세션>.jsonl                   # 특정 대화만
 python3 -m tokenoptima analyze --root <폴더> --name 가명A      # 다른 사람이 보내 준 projects 폴더
 python3 -m tokenoptima analyze-team <팀 폴더>                 # 사람마다 보고서 한 편씩
 ```
+
+### 오프라인(인터넷이 없는 환경)
+
+그대로 돌아갑니다. 외부 패키지를 받지 않고, 기록을 네트워크로 보내지도 않습니다(표준 라이브러리만 사용).
+필요한 것은 Python 3.9 이상과 이 저장소 파일뿐입니다.
+
+1. 인터넷이 되는 곳에서 저장소를 받아 폴더째 복사합니다(GitHub의 **Code → Download ZIP**도 됩니다).
+2. 오프라인 컴퓨터에서 압축을 풀고, 그 폴더에서 `python3 -m tokenoptima analyze`를 실행합니다.
+3. 대화 기록이 다른 컴퓨터에 있으면 그쪽의 `~/.claude/projects` 폴더를 복사해 와서 `--root <복사한 폴더>`로 지정합니다.
 
 `analyze-team`의 팀 폴더는 사람마다 하위 폴더 하나입니다(`<사람>/<프로젝트>/<세션>.jsonl` 또는 `<사람>/projects/...`).
 폴더 이름이 보고서 제목이 되므로 **가명 폴더**를 권합니다. 팀 보고서는 기본으로 프롬프트 글을 가립니다.

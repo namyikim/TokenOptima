@@ -17,7 +17,7 @@ from typing import List
 
 from .analyze import analyse
 from .loader import default_paths, load_all
-from .report import render
+from .report import render, score
 
 
 def _person_paths(folder: Path) -> List[Path]:
@@ -30,8 +30,9 @@ def _write(paths: List[Path], out: Path, name: str, redact: bool) -> bool:
     if not sessions:
         return False
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render([analyse(s) for s in sessions], redact=redact, name=name), encoding="utf-8")
-    print(f"{name or '나'}: 대화 {len(sessions)}개 → {out}")
+    reports = [analyse(s) for s in sessions]
+    out.write_text(render(reports, redact=redact, name=name), encoding="utf-8")
+    print(f"{name or '나'}: 대화 {len(sessions)}개 · 효율 점수 {score(reports)}/100 → {out}")
     return True
 
 
